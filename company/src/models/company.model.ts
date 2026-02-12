@@ -3,23 +3,25 @@ import mongoose, { Document, Schema } from "mongoose";
 /* ---------- Sub Types ---------- */
 
 export interface ISocialLinks {
-  github?: string;
+  
   linkedin?: string;
+  website?:string;
   twitter?: string;
-  portfolio?: string;
+  
 }
 
 /* ---------- Main User Interface ---------- */
 
-export interface IUser extends Document {
+export interface ICompany extends Document {
   name: string;
   email: string;
   password?: string; 
-  role: "user";
+  role:  "company";
   provider: "local" | "google";
 
   bio?: string;
-  avatar?: string;
+  logo?: string;
+  industry?:string;
   location?: string;
 
   socialLinks?: ISocialLinks;
@@ -39,14 +41,15 @@ export interface IUser extends Document {
 }
 const socialLinksSchema = new Schema<ISocialLinks>(
   {
-    github: String,
+    
     linkedin: String,
+    website:String,
     twitter: String,
-    portfolio: String,
+    
   },
   { _id: false }
 );
-const userSchema = new Schema<IUser>(
+const companySchema = new Schema<ICompany>(
   {
     name: {
       type: String,
@@ -67,8 +70,8 @@ const userSchema = new Schema<IUser>(
 
     role: {
       type: String,
-      enum: ["user"],
-      default: "user",
+      enum: [ "company"],
+      default: "company",
     },
 
     provider: {
@@ -78,7 +81,7 @@ const userSchema = new Schema<IUser>(
     },
 
     bio: String,
-    avatar: String,
+    logo: String,
     location: String,
 
     socialLinks: socialLinksSchema,
@@ -112,5 +115,5 @@ const userSchema = new Schema<IUser>(
     timestamps: true,
   }
 );
-const userModel = mongoose.model<IUser>("user", userSchema);
-export default userModel; 
+const companyModel = mongoose.model<ICompany>("company", companySchema);
+export default companyModel; 

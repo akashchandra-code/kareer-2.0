@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import userModel from "../models/user.model";
+import companyModel from "../models/company.model";
 import { verifyToken } from "../utils/jwt";
 
 interface JwtPayload {
-  userId: string;
+  companyId: string;
   role: string;
 }
 
@@ -23,10 +23,10 @@ export const authMiddleware = async (
 
     const decoded = verifyToken(token) as JwtPayload;
 
-    const user = await userModel
-      .findById(decoded.userId)
+    const user = await companyModel
+      .findById(decoded.companyId)
       .select("-password");
-
+     console.log(user)
     if (!user) {
       return res.status(401).json({ message: "Invalid token" });
     }

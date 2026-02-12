@@ -25,8 +25,8 @@ export const validateRegistration = [
     .withMessage("Password must be at least 6 characters long"),
   body("role")
     .optional()
-    .isIn(["user"])
-    .withMessage("Role must be  user"),
+    .isIn(["user", "company"])
+    .withMessage("Role must be either user or company"),
   respondValidationErrors,
 ];
 export const validateLogin = [
