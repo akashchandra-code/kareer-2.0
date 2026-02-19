@@ -4,6 +4,8 @@ import {env} from "../config/env";
 interface TokenPayload {
   companyId: string;
   role:  "company";
+  name: string;
+  isVerified: boolean;
   provider: "local" | "google";
 }
 

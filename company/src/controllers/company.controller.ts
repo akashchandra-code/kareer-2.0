@@ -1,48 +1,53 @@
-import companyModel,{ICompany} from "../models/company.model";
+import companyModel, { ICompany } from "../models/company.model";
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import { generateToken,verifyToken } from "../utils/jwt";
+import { generateToken, verifyToken } from "../utils/jwt";
 import { uploadImage } from "../utils/imagekit.service";
 
-
 export const register = async (req: Request, res: Response) => {
-    const { name, email, password } = req.body;
-    try {
-        const existingUser = await companyModel.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already in use" });
-        }
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const otp=Math.floor(100000 + Math.random() * 900000).toString();
-        console.log("Generated OTP:", otp);
-        const hashedOtp=await bcrypt.hash(otp,10);
-        const newCompany = new companyModel({
-            name,
-            email,
-            password: hashedPassword,
-            emailOtp: hashedOtp,
-            emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
-        });
-        await newCompany.save();
-        const token = generateToken({ companyId: newCompany._id.toString(), role: "company" , provider: "local" });
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure:true,
-            maxAge: 24 * 60 * 60 * 1000, // 1 day
-        });
-        return res.status(201).json({
-            message: "company registered successfully",
-            token,
-            company: {
-                name: newCompany.name,
-                email: newCompany.email,
-                role: newCompany.role,
-            },
-        });
-    } catch (error) {
-        return res.status(500).json({ message: "Server error" });
-        console.error("Registration error:", error);
+  const { name, email, password } = req.body;
+  try {
+    const existingUser = await companyModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already in use" });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log("Generated OTP:", otp);
+    const hashedOtp = await bcrypt.hash(otp, 10);
+    const newCompany = new companyModel({
+      name,
+      email,
+      password: hashedPassword,
+      emailOtp: hashedOtp,
+      emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+    });
+    await newCompany.save();
+    const token = generateToken({
+      companyId: newCompany._id.toString(),
+      role: "company",
+      name: newCompany.name,
+      isVerified: newCompany.isVerified,
+      provider: newCompany.provider,
+    });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+    return res.status(201).json({
+      message: "company registered successfully",
+      token,
+      company: {
+        name: newCompany.name,
+        email: newCompany.email,
+        role: newCompany.role,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" });
+    console.error("Registration error:", error);
+  }
 };
 
 export const login = async (req: Request, res: Response) => {
@@ -57,13 +62,13 @@ export const login = async (req: Request, res: Response) => {
 
     if (company.provider === "google") {
       return res.status(400).json({
-        message: "Please login using Google"
+        message: "Please login using Google",
       });
     }
 
     if (!company.password) {
       return res.status(400).json({
-        message: "Password not set for this account"
+        message: "Password not set for this account",
       });
     }
 
@@ -75,7 +80,9 @@ export const login = async (req: Request, res: Response) => {
 
     const token = generateToken({
       companyId: company._id.toString(),
-      role: company.role,
+      role: "company",
+      name: company.name,
+      isVerified: company.isVerified,
       provider: company.provider,
     });
 
@@ -99,19 +106,13 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const getMe = async (req: Request, res: Response) => {
-    return res.status(200).json({ user: req.user });
-}
+  return res.status(200).json({ user: req.user });
+};
 
 export const updateCompanyProfile = async (req: Request, res: Response) => {
   const companyId = (req.user as { id: string }).id;
 
-  const { 
-    name, 
-    bio, 
-    location, 
-    industry, 
-    socialLinks 
-  } = req.body;
+  const { name, bio, location, industry, socialLinks } = req.body;
 
   const logoFile = req.file;
 
@@ -142,14 +143,13 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
     const updatedCompany = await companyModel.findByIdAndUpdate(
       companyId,
       updateData,
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({
       message: "Company profile updated successfully",
       company: updatedCompany,
     });
-
   } catch (error) {
     console.error("Update company profile error:", error);
     return res.status(500).json({ message: "Server error" });
@@ -157,12 +157,12 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-    res.clearCookie("token", {
-        httpOnly: true,
-        secure: true,
-    });
-    return res.status(200).json({ message: "Logged out successfully" });
-}
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+  });
+  return res.status(200).json({ message: "Logged out successfully" });
+};
 
 export const verifyEmailOtp = async (req: Request, res: Response) => {
   const { email, otp } = req.body;
@@ -244,9 +244,18 @@ export const resendEmailOtp = async (req: Request, res: Response) => {
     if (company.isVerified) {
       return res.status(400).json({ message: "Email already verified" });
     }
-    if (company.emailOtpResendAt && company.emailOtpResendAt.getTime() > Date.now()) {
-      const waitTime = Math.ceil((company.emailOtpResendAt.getTime() - Date.now()) / 1000);
-      return res.status(429).json({ message: `Please wait ${waitTime} seconds before requesting a new OTP.` });
+    if (
+      company.emailOtpResendAt &&
+      company.emailOtpResendAt.getTime() > Date.now()
+    ) {
+      const waitTime = Math.ceil(
+        (company.emailOtpResendAt.getTime() - Date.now()) / 1000,
+      );
+      return res
+        .status(429)
+        .json({
+          message: `Please wait ${waitTime} seconds before requesting a new OTP.`,
+        });
     }
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log("Generated OTP:", otp);
@@ -261,7 +270,7 @@ export const resendEmailOtp = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Server error" });
     console.error("Resend OTP error:", error);
   }
-}
+};
 
 export const addCredits = async (req: Request, res: Response) => {
   const { credits } = req.body;
