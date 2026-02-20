@@ -22,7 +22,11 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 import createAuthMiddleware from "../middlewares/auth.middleware";
-import { createApplication,getUserApplications } from "../controllers/application.controller";
+import { createApplication,
+    getUserApplications,
+     withdrawApplication,
+     getJobApplicants,
+     getApplicantById } from "../controllers/application.controller";
 console.log("Application routes loaded");
 
 router.post(
@@ -35,6 +39,16 @@ router.get(
   "/user",
   createAuthMiddleware(["user"]),
   getUserApplications,
+);
+router.get('/job/:jobId',
+    createAuthMiddleware(['company']),
+    getJobApplicants
+)
+router.get('/:applicantId', createAuthMiddleware(['company']), getApplicantById)
+router.patch(
+  "/withdraw/:id",
+  createAuthMiddleware(["user"]),
+  withdrawApplication,
 );
 
 export default router;
