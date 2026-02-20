@@ -26,7 +26,9 @@ import { createApplication,
     getUserApplications,
      withdrawApplication,
      getJobApplicants,
-     getApplicantById } from "../controllers/application.controller";
+     getApplicantById,
+     changeApplicationStatus
+     } from "../controllers/application.controller";
 console.log("Application routes loaded");
 
 router.post(
@@ -44,7 +46,8 @@ router.get('/job/:jobId',
     createAuthMiddleware(['company']),
     getJobApplicants
 )
-router.get('/:applicantId', createAuthMiddleware(['company']), getApplicantById)
+router.get('/:applicantId', createAuthMiddleware(['company']), getApplicantById);
+router.patch('/status/:applicationId', createAuthMiddleware(['company']), changeApplicationStatus);
 router.patch(
   "/withdraw/:id",
   createAuthMiddleware(["user"]),

@@ -194,3 +194,32 @@ export const getApplicantById = async (req: Request, res: Response) => {
     });
   }
 }
+
+export const changeApplicationStatus = async (req: Request, res: Response) => {
+  try {
+    const applicationId = req.params.applicationId;
+    const { status } = req.body;
+    console.log("Received request to change application status for ID:", applicationId, "to status:", status);
+    if (!applicationId || !status) {
+      return res.status(400).json({ message: "Application ID and status are required" });
+    }
+    const validStatuses = ["accepted", "rejected", "pending","hired"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+    const updatedApplication = await application.findByIdAndUpdate(
+      applicationId,
+      { status, reviewedAt: new Date() },
+      { new: true }
+    );
+    return res.status(200).json({
+      message: "Application status updated successfully",
+      application: updatedApplication,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+    console.error("Error changing application status:", error);
+  }
+}
