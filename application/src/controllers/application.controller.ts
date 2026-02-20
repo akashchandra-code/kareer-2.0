@@ -85,3 +85,25 @@ export const createApplication = async (
     });
   }
 };
+
+export const getUserApplications = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const applications = await application.find({ userId, isWithdrawn: false });
+    return res.status(200).json({
+      message: "Applications fetched successfully",
+      applications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+    console.error("Error fetching user applications:", error);
+  }
+};
