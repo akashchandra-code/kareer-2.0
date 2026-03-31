@@ -1,13 +1,13 @@
 import { jobModel } from "../models/job.model";
+import fs from "fs";
+import PDFParser from "pdf2json";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import axios from "axios";
+import { rankJobs } from "../utils/rankJobs";
+
 export const createJob = async (req:Request, res:Response) => {
     const { title, description, location, workType, workMode, experienceLevel, category, skills, salaryRange, openings, status } = req.body;
-    console.log("Creating job with data:", req.body);
-    console.log("User info from request:", req.user);
-    console.log("Company ID from request:", req.user?.companyId);
-    console.log("Company Name from request:", req.user?.name);
-    console.log("JWT Secret in environment:", process.env.JWT_SECRET);
     try {
         const newJob = new jobModel({
             companyId: req.user!.companyId,
@@ -187,5 +187,140 @@ export const deleteJob = async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: "Server error" });
     console.error("Error deleting job:", error);
+  }
+};
+export const processAIResume = async (req: Request, res: Response) => {
+  if (!req.file)
+    return res.status(400).json({ message: "No file uploaded" });
+
+  const pdfParser = new PDFParser();
+
+  pdfParser.on("pdfParser_dataError", (err) => {
+    console.error(err);
+    return res.status(500).json({
+      message: "PDF parsing error",
+      error: err,
+    });
+  });
+
+  pdfParser.on("pdfParser_dataReady", async (pdfData) => {
+    try {
+      let extractedText = "";
+
+      pdfData.Pages.forEach((page: any) => {
+        page.Texts.forEach((text: any) => {
+          text.R.forEach((r: any) => {
+            extractedText += decodeURIComponent(r.T) + " ";
+          });
+        });
+        extractedText += "\n";
+      });
+
+      // 🔥 STEP 1: AI ANALYSIS
+      const aiRes = await axios.post(
+        "http://localhost:3004/api/ai",
+        { resumeText: extractedText },
+        {
+          headers: {
+            Authorization: `Bearer ${req.cookies.token}`,
+          },
+        }
+      );
+
+      const aiData = aiRes.data;
+
+      // 🔥 STEP 2: BASIC FILTER (reduce DB load)
+      const jobs = await jobModel.find({
+        $or: [
+          {
+            title: {
+              $in: aiData.matching_job_titles.map(
+                (t: string) => new RegExp(t, "i")
+              ),
+            },
+          },
+          {
+            skills: {
+              $in: aiData.skills,
+            },
+          },
+        ],
+      });
+
+      // 🔥 STEP 3: RANK JOBS
+      const rankedJobs = rankJobs(jobs, aiData);
+
+      // 🔥 STEP 4: RETURN TOP JOBS
+      return res.status(200).json({
+        success: true,
+        totalJobs: rankedJobs.length,
+        topMatches: rankedJobs.slice(0, 10), // top 10
+        jobs: rankedJobs,
+      });
+
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "AI processing failed" });
+    }
+  });
+
+  pdfParser.parseBuffer(req.file.buffer);
+};
+export const bulkCreateJobs = async (req: Request, res: Response) => {
+  try {
+    const jobs = req.body.jobs;
+
+    // ✅ Check array
+    if (!Array.isArray(jobs) || jobs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Jobs must be a non-empty array",
+      });
+    }
+
+    // ✅ Optional: limit size (VERY IMPORTANT)
+    if (jobs.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "You can only insert up to 500 jobs at a time",
+      });
+    }
+
+    // ✅ Validate each job manually (light validation)
+    const validatedJobs = jobs.map((job) => ({
+      companyId: job.companyId,
+      companyName: job.companyName,
+      title: job.title,
+      description: job.description,
+      location: job.location,
+      workType: job.workType,
+      workMode: job.workMode,
+      experienceLevel: job.experienceLevel,
+      category: job.category,
+      skills: job.skills,
+      salaryRange: {
+        min: job.salaryRange?.min,
+        max: job.salaryRange?.max,
+      },
+      openings: job.openings,
+      status: job.status || "Open",
+    }));
+
+    // ✅ Insert in DB
+    const createdJobs = await jobModel.insertMany(validatedJobs, {
+      ordered: false, // 🔥 continues even if some fail
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Bulk jobs created successfully",
+      count: createdJobs.length,
+    });
+
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

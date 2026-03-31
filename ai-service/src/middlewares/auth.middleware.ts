@@ -5,7 +5,7 @@ interface CustomJwtPayload extends JwtPayload {
   id: string;
   role: string;
   name: string;
-  isverified: boolean;
+  isVerified: boolean;
 }
 
 const createAuthMiddleware = (roles: string[] = ["user"]) => {

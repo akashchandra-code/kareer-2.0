@@ -21,7 +21,7 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
 });
-import createAuthMiddleware from "../middlewares/auth.middleware";
+import createAuthMiddleware, { emailIsVerified } from "../middlewares/auth.middleware";
 import { createApplication,
     getUserApplications,
      withdrawApplication,
@@ -34,6 +34,7 @@ console.log("Application routes loaded");
 router.post(
   "/",
   createAuthMiddleware(["user"]),
+  emailIsVerified,
   upload.single("file"),
   createApplication,
 );

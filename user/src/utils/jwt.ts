@@ -5,6 +5,7 @@ interface TokenPayload {
   userId: string;
   role: "user" | "company";
   provider: "local" | "google";
+  isVerified: boolean;
 }
 
 export const generateToken = (

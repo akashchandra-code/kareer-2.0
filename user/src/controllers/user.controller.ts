@@ -25,7 +25,7 @@ export const registerUser = async (req: Request, res: Response) => {
             emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
         });
         await newUser.save();
-        const token = generateToken({ userId: newUser._id.toString(), role: role || "user", provider: "local" });
+        const token = generateToken({ userId: newUser._id.toString(), role: role || "user", provider: "local" ,isVerified:false});
         res.cookie("token", token, {
             httpOnly: true,
             secure:true,
@@ -78,6 +78,7 @@ export const loginUser = async (req: Request, res: Response) => {
       userId: user._id.toString(),
       role: user.role,
       provider: user.provider,
+      isVerified: user.isVerified,
     });
 
     res.cookie("token", token, {
